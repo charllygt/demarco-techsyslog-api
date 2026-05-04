@@ -1,0 +1,16 @@
+**/bin
+**/obj
+**/.vs
+**/.vscode
+**/.idea
+**/coverage
+**/TestResults
+**/logs
+**/.env
+**/.git
+**/.gitignore
+**/Dockerfile*
+**/docker-compose*
+**/README.md
+**/*.user
+**/*.suo

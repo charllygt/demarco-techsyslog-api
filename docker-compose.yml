@@ -1,0 +1,77 @@
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: techsyslog-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-admin}
+      MONGO_INITDB_DATABASE: techsyslog
+    volumes:
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - techsyslog-net
+
+  mongo-express:
+    image: mongo-express:1.0
+    container_name: techsyslog-mongo-express
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_USER:-admin}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_PASSWORD:-admin}
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin}@mongo:27017/
+      ME_CONFIG_BASICAUTH: "false"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - techsyslog-net
+    profiles:
+      - tools
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: techsyslog-api:local
+    container_name: techsyslog-api
+    restart: unless-stopped
+    ports:
+      - "5000:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      Mongo__ConnectionString: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin}@mongo:27017/?authSource=admin
+      Mongo__DatabaseName: techsyslog
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:-dev-only-256-bit-key-CHANGE-IN-PRODUCTION-please-do-not-commit}
+      Jwt__Issuer: techsyslog
+      Jwt__Audience: techsyslog-clients
+      Jwt__ExpirationHours: 8
+      ViaCep__BaseUrl: https://viacep.com.br/ws/
+      Cors__AllowedOrigins__0: http://localhost:4200
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - techsyslog-net
+    profiles:
+      - full
+
+volumes:
+  mongo-data:
+  mongo-config:
+
+networks:
+  techsyslog-net:
+    driver: bridge
